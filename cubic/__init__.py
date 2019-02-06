@@ -75,7 +75,7 @@ class CubicServer:
         """
         return self('put_block', l=[{'hash': h, 'data': b64(blocks[h])} for h in blocks])
 
-    def update_tree(self, add, remove):
+    def update_tree(self, *, add=(), remove=()):
         """
         :param add: list of Nodes
         :param remove: list of Nodes
@@ -94,12 +94,12 @@ class CubicServer:
         """
         return Node.from_json(self('get_tree', base=b64(base.path)))
 
-    def get_block(self, l):
+    def get_block(self, hash_list):
         """
-        :param l: list of hashes
+        :param hash_list: list of hashes
         :return: dict of (hash, bytes)
         """
-        return {h: b64decode(d) for h, d in self('get_block', l=list(l)).items()}
+        return {h: b64decode(d) for h, d in self('get_block', l=list(hash_list)).items()}
 
     def reset(self):
         """
