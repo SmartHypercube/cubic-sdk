@@ -40,6 +40,9 @@ class Node:
     def __str__(self):
         return self.path.decode('utf8', errors='ignore')
 
+    def __repr__(self):
+        return repr(self.path)
+
 
 class CubicServer:
     class Error(Exception):
