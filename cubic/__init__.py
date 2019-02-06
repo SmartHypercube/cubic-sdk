@@ -16,24 +16,27 @@ def b64(data):
 
 
 class Node:
-    def __init__(self, path, is_dir=False, meta=b'', children=(), blocks=()):
+    def __init__(self, path, is_dir=False, meta=b'', children=(), size=0, blocks=()):
         """
         :param path: bytes
         :param is_dir: bool
         :param meta: bytes
         :param children: list of Nodes
+        :param size: int
         :param blocks: list of hashes
         """
         self.path = path
         self.is_dir = bool(is_dir)
         self.meta = meta
         self.children = list(children)
+        self.size = int(size)
         self.blocks = list(blocks)
 
     @classmethod
     def from_json(cls, data):
         if not data['is_dir']:
-            return cls(b64decode(data['path']), False, b64decode(data['meta']), blocks=data['blocks'])
+            return cls(b64decode(data['path']), False, b64decode(data['meta']), size=data['size'],
+                       blocks=data['blocks'])
         return cls(b64decode(data['path']), True, b64decode(data['meta']),
                    children=map(cls.from_json, data['children']))
 
