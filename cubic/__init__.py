@@ -94,3 +94,9 @@ class CubicServer:
         :return: dict of (hash, bytes)
         """
         return {h: b64decode(d) for h, d in self('get_block', l=list(l)).items()}
+
+    def reset(self):
+        """
+        :return: None
+        """
+        return self('reset')
