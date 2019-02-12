@@ -60,7 +60,8 @@ class Cubic:
         items = []
         for line in res.iter_lines():
             path, meta, blocks = line.split(b':')
-            items.append(Item(b64decode(path), b64decode(meta), blocks.decode('ascii').split(',')))
+            blocks = blocks.decode('ascii').split(',') if blocks else []
+            items.append(Item(b64decode(path), b64decode(meta), blocks))
         return items
 
     def post_tree(self, put_items=(), delete_paths=()):
