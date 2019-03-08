@@ -1,18 +1,18 @@
+"""Cubic SDK"""
+
+__all__ = ['HASH', 'HASH_LEN', 'Cubic']
+
 from base64 import b64decode, b64encode
 from collections import namedtuple
 from hashlib import sha3_256
-import requests
+from uuid import uuid4
 
-__all__ = ['HASH', 'HASH_LEN', 'Cubic', 'Item']
+import requests
 
 HASH = sha3_256
 HASH_LEN = len(HASH().hexdigest())
 
 Item = namedtuple('Item', ('path', 'meta', 'blocks'))
-
-
-def b64(data):
-    return b64encode(data).decode('ascii')
 
 
 def async_map(func, iterable):
@@ -25,55 +25,84 @@ def async_map(func, iterable):
     async def coroutine():
         futures = [loop.run_in_executor(executor, func, i) for i in iterable]
         return [await f for f in futures]
+
     return loop.run_until_complete(coroutine())
 
 
 class Cubic:
-    _hfs_get = 'https://hfs-1251965935.cos.ap-shanghai.myqcloud.com/'
-    _hfs_api = 'https://service-1p2s8p0h-1251965935.ap-shanghai.apigateway.myqcloud.com/release/'
-    _cubic_api = 'https://service-qkomvv9d-1251965935.ap-shanghai.apigateway.myqcloud.com/release/'
+    _hfs_get = 'https://0x01-hfs.oss-cn-shenzhen.aliyuncs.com/'
+    _hfs_api = 'https://1802550410649663.cn-shenzhen.fc.aliyuncs.com' \
+               '/2016-08-15/proxy/hfs/hfs/'
+    _cubic_api = 'https://1802550410649663.cn-shenzhen.fc.aliyuncs.com' \
+                 '/2016-08-15/proxy/cubic/cubic/'
+    _temp_put = 'https://0x01-temp.oss-cn-shenzhen.aliyuncs.com/'
 
-    def __init__(self, user, token):
-        self._session = requests.Session()
-        self._cubic_api += f'{user}/{token}'
+    class Error(Exception):
+        pass
 
-    def head_block(self, hash):
-        """Returns True if server has the block. False if not. None if request failed."""
-        res = self._session.head(self._hfs_get + hash)
-        return res.ok if res.ok or res.status_code == 404 else None
+    def __init__(self, user, token, session=None):
+        if session is None:
+            session = requests.Session()
+        self._session = session
+        self._cubic_api += user
+        self._auth = (user.partition('.')[0], token)
 
-    def get_block(self, hash):
-        """Returns block in bytes. None if request failed."""
-        res = self._session.get(self._hfs_get + hash)
-        return res.content if res.ok else None
+    def head_block(self, key):
+        res = self._session.head(self._hfs_get + key)
+        return res.ok
 
-    def post_block(self, block):
-        """Uploads block in bytes. Returns the hash. None if request failed."""
-        res = self._session.post(self._hfs_api, b64encode(block))
-        return res.text if res.ok else None
+    def get_block(self, key):
+        res = self._session.get(self._hfs_get + key)
+        if not res.ok:
+            raise Cubic.Error(res)
+        return res.content
+
+    def post_block(self, block, key=None):
+        url = self._temp_put + str(uuid4())
+        res = self._session.put(url, block)
+        if not res.ok:
+            raise Cubic.Error(res)
+        res = self._session.post(self._hfs_api, json={'key': key, 'url': url})
+        if not res.ok:
+            raise Cubic.Error(res)
+        return res.text.strip().rpartition('/')[2]
+
+    def put_block(self, key, block):
+        self.post_block(block, key)
 
     def get_tree(self):
-        """Returns Items in the tree. None if request failed."""
-        res = self._session.get(self._cubic_api)
+        res = self._session.get(self._cubic_api, auth=self._auth, stream=True)
         if not res.ok:
-            return
-        items = []
+            raise Cubic.Error(res)
         for line in res.iter_lines():
-            path, meta, blocks = line.split(b':')
-            blocks = blocks.decode('ascii').split(',') if blocks else []
-            items.append(Item(b64decode(path), b64decode(meta), blocks))
-        return items
+            path, meta, blocks = line.strip().split(b':')
+            yield Item(b64decode(path),
+                       b64decode(meta),
+                       blocks.decode('ascii').split(',') if blocks else [])
 
-    def post_tree(self, put_items=(), delete_paths=()):
-        """Updates the tree. Returns the new version ID. None if request failed."""
-        res = self._session.post(self._cubic_api, json={
-            'put_list': [{
-                'path': b64(i.path),
-                'meta': b64(i.meta),
-                'blocks': list(i.blocks)} for i in put_items],
-            'delete_list': [{'path': b64(p)} for p in delete_paths],
-        })
-        return res.text if res.ok else None
+    def post_tree(self, put_items=(), delete_paths=(), base=''):
+        def stream():
+            for path, meta, blocks in put_items:
+                yield b':'.join((b64encode(path),
+                                 b64encode(meta),
+                                 ','.join(blocks).encode('ascii'))) + b'\n'
+            for path in delete_paths:
+                yield b64encode(path) + b'\n'
+
+        url = self._temp_put + str(uuid4())
+        res = self._session.put(url, stream())
+        if not res.ok:
+            raise Cubic.Error(res)
+        res = self._session.post(self._cubic_api, auth=self._auth,
+                                 json={'changes': url, 'base': base})
+        if not res.ok:
+            raise Cubic.Error(res)
+
+    def put_tree(self, items=()):
+        self.post_tree(items, base='null')
+
+    def delete_tree(self):
+        self.put_tree()
 
     def bulk_head_block(self, hashes):
         """Calls head_block in bulk."""
