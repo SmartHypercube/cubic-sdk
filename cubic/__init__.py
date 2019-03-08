@@ -1,6 +1,6 @@
 """Cubic SDK"""
 
-__all__ = ['HASH', 'HASH_LEN', 'Cubic']
+__all__ = ['HASH', 'HASH_LEN', 'Item', 'Cubic']
 
 from base64 import b64decode, b64encode
 from collections import namedtuple
