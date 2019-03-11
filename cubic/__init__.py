@@ -8,6 +8,7 @@ from hashlib import sha3_256
 from uuid import uuid4
 
 import requests
+from requests.adapters import HTTPAdapter
 
 HASH = sha3_256
 HASH_LEN = len(HASH().hexdigest())
@@ -43,6 +44,8 @@ class Cubic:
     def __init__(self, user, token, session=None):
         if session is None:
             session = requests.Session()
+            session.mount('https://', HTTPAdapter(100, 100))
+            session.mount('http://', HTTPAdapter(100, 100))
         self._session = session
         self._cubic_api += user
         self._auth = (user.partition('.')[0], token)
