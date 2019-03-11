@@ -74,10 +74,10 @@ class Cubic:
         self.post_block(block, key)
 
     def get_tree(self):
-        res = self._session.get(self._cubic_api, auth=self._auth, stream=True)
+        res = self._session.get(self._cubic_api, auth=self._auth)
         if not res.ok:
             raise Cubic.Error(res)
-        for line in res.iter_lines():
+        for line in res.content.splitlines():
             path, meta, blocks = line.strip().split(b':')
             yield Item(b64decode(path),
                        b64decode(meta),
