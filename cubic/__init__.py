@@ -93,7 +93,7 @@ class Cubic:
                 yield b64encode(path) + b'\n'
 
         url = self._temp_put + str(uuid4())
-        res = self._session.put(url, stream())
+        res = self._session.put(url, b''.join(stream()))
         if not res.ok:
             raise Cubic.Error(res)
         res = self._session.post(self._cubic_api, auth=self._auth,
