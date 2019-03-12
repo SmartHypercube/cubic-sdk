@@ -83,7 +83,7 @@ class Cubic:
                        b64decode(meta),
                        blocks.decode('ascii').split(',') if blocks else [])
 
-    def post_tree(self, put_items=(), delete_paths=(), base=''):
+    def _post_tree(self, put_items=(), delete_paths=(), base=''):
         def stream():
             paths = set()
             for path, meta, blocks in put_items:
@@ -108,11 +108,14 @@ class Cubic:
         if not res.ok:
             raise Cubic.Error(res)
 
+    def post_tree(self, put_items=(), delete_paths=()):
+        self._post_tree(put_items, delete_paths)
+
     def put_tree(self, items=()):
-        self.post_tree(items, base='null')
+        self._post_tree(items, base='null')
 
     def delete_tree(self):
-        self.put_tree()
+        self._post_tree(base='null')
 
     def bulk_head_block(self, hashes):
         """Calls head_block in bulk."""
