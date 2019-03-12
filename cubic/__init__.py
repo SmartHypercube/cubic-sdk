@@ -85,11 +85,18 @@ class Cubic:
 
     def post_tree(self, put_items=(), delete_paths=(), base=''):
         def stream():
+            paths = set()
             for path, meta, blocks in put_items:
+                if path in paths:
+                    raise ValueError(f'duplicate path {repr(path)}')
+                paths.add(path)
                 yield b':'.join((b64encode(path),
                                  b64encode(meta),
                                  ','.join(blocks).encode('ascii'))) + b'\n'
             for path in delete_paths:
+                if path in paths:
+                    raise ValueError(f'duplicate path {repr(path)}')
+                paths.add(path)
                 yield b64encode(path) + b'\n'
 
         url = self._temp_put + str(uuid4())
